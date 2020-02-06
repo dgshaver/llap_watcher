@@ -1,6 +1,6 @@
 {
     "runnerConfig": {
-        "kill_query_threshold_seconds": 3,
+        "kill_query_threshold_seconds": 1800,
         "headnodehost": "headnodehost",
         "rest_request_retry_delay_seconds": 2,
         "rest_performance_alert_threshold_seconds": 5,
