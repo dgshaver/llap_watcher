@@ -186,7 +186,7 @@ class HDInsightCluster:
             response = get(url, self.ambari_admin_user, self.ambari_admin_user_password, authentication_protocol, parameters)
         except Exception as ex:
             _logger.error('Attempt to retrieve LLAP start timestamp failed with error:\n{0}'.format(ex))
-            _logger.error('The kinit for configured \'runner_user\' may have failed, or the cluster: {0} may not be a Hive LLAP cluster'.format(get_self.hdi_cluster_dns_name))
+            _logger.error('The kinit for configured \'runner_user\' may have failed, or the cluster: {0} may not be a Hive LLAP cluster'.format(self.hdi_cluster_dns_name))
             # Re-throw the exception to shut the watcher down
             raise
 
@@ -233,6 +233,7 @@ class HDInsightCluster:
             query_submission_timestamp_seconds = 0
             ats_request_window_end_timestamp = llap_query['starttime'] - 1
             hsi_query['query_id'] = llap_query['entity']
+            #hsi_query['request_user'] 
             _logger.debug('QueryID: {0} starttime: {1}'.format(hsi_query['query_id'], ats_request_window_end_timestamp))
             # Each query has a max of two events [QUERY_SUBMITTED and QUERY_COMPLETED]
             for event in llap_query['events']:
@@ -287,7 +288,7 @@ def get_with_retry(url, username, password, authentication_method='NONE', parame
             # If retry failed retry_count times, send the exception back to the caller
             if i == retry_count:
                 raise
-            sleep(retry_delay_seconds)
+            time.sleep(retry_delay_seconds)
             _logger.info('Initiating retry {0} of {1} ...'.format(i, retry_count))
             continue
     return(response)
