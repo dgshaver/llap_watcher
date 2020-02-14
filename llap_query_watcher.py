@@ -233,8 +233,6 @@ class HDInsightCluster:
             query_submission_timestamp_seconds = 0
             ats_request_window_end_timestamp = llap_query['starttime'] - 1
             hsi_query['query_id'] = llap_query['entity']
-            #hsi_query['request_user'] 
-            _logger.debug('QueryID: {0} starttime: {1}'.format(hsi_query['query_id'], ats_request_window_end_timestamp))
             # Each query has a max of two events [QUERY_SUBMITTED and QUERY_COMPLETED]
             for event in llap_query['events']:
                 # If we encounter a QUERY_COMPLETED event, break as the query has finished execution
@@ -243,6 +241,13 @@ class HDInsightCluster:
                 if event['eventtype'] == 'QUERY_SUBMITTED':
                     # Capture query submission timestamp and convert to seconds
                     hsi_query['query_start_timestamp'] = event['timestamp']//1000
+            # The requestuser is the user that the request is running under, and is implemented as a list (not sure why)
+            request_users = []
+            for user in llap_query['primaryfilters']['requestuser']:
+                request_users.append(user)
+            if len(request_users) > 0:
+                hsi_query['request_users'] = request_users
+            _logger.debug('QueryID: {0} starttime: {1} request_users: {2}'.format(hsi_query['query_id'], ats_request_window_end_timestamp, request_users))
             hive_query_events.append(hsi_query.copy())
             hsi_query.clear()
         
@@ -306,16 +311,38 @@ def executeCmd(cmd):
         raise Exception(stderr)
     
 """
-This function subtracts the starttime from the current system time, and returns a boolean 
-indicating whether the task has been running for longer than KILL_THRESHOLD_SECONDS
-starttime - timestamp in seconds
+Check if a request_user is in the list of blacklist users.  request_users is a list
 """
-def should_kill(starttime, kill_threshold):
+def is_blacklist_user(request_users):
+    blacklist_users = get_blacklist_users()
+    for request_user in request_users:
+        if request_user in blacklist_users:
+            return(True)
+    return(False)
+
+"""
+This function considers two factors in determining whether a query should be killed:
+1.  Does the query's current duration exceed the configured threshold.
+    subtracts the starttime from the current system time, and returns a boolean 
+    indicating whether the task has been running for longer than KILL_THRESHOLD_SECONDS
+    starttime - timestamp in seconds
+2.  If "blacklisting" is enabled, only kill a query that meets condition 1 if the query is being executed
+    by a "blacklisted" user
+"""
+def should_kill(starttime, kill_threshold, request_users):
+    # First, determine whether query exceeds the configured kill_threshold
     current_time_seconds = int(time.time())
     duration_in_seconds = current_time_seconds - starttime
-    _logger.debug('CurrentTime: {0} StartTime: {1} QueryDuration: {2} KILL_THRESHOLD_SECONDS: {3}' \
-	.format(current_time_seconds,starttime,duration_in_seconds,kill_threshold))
-    return(duration_in_seconds >= kill_threshold)
+    blacklisting_enabled = bool(is_blacklisting_enabled())
+    _logger.debug('Blacklisting Enabled: {0} CurrentTime: {1} StartTime: {2} QueryDuration: {3} KILL_THRESHOLD_SECONDS: {4}' \
+	.format(blacklisting_enabled, current_time_seconds,starttime,duration_in_seconds,kill_threshold))
+
+    # Blacklist checks
+    if blacklisting_enabled == True:
+        return(duration_in_seconds >= kill_threshold and is_blacklist_user(request_users))
+    else:
+        # Blacklisting not enabled, just check duration against configured kill threshold
+        return(duration_in_seconds >= kill_threshold)
 
 """
 Launch beeline process to each query in queries_to_kill
@@ -426,6 +453,11 @@ def get_rest_request_retry_delay_seconds():
 
 def get_hsi_query_kill_threshold():
     return(RUNNER_CONFIG['runnerConfig']['kill_query_threshold_seconds'])
+def get_blacklist_users():
+    return(RUNNER_CONFIG['runnerConfig']['blacklist']['users'])
+
+def is_blacklisting_enabled():
+    return(RUNNER_CONFIG['runnerConfig']['blacklist']['enabled'])
 
 def get_rest_performance_alert_threshold_seconds():
     return(RUNNER_CONFIG['runnerConfig']['rest_performance_alert_threshold_seconds'])
@@ -618,7 +650,7 @@ def get_ats_request_window_timestamps():
     return(ats_events_processed_high_water_mark, ats_query_window_end_timestamp, ats_query_window_begin_timestamp)
 
 
-def kill_hsi_queries_exceeding_threshold(hsi_queries):
+def kill_hsi_queries(hsi_queries):
     # hsi_queries is list of dictionary objects; each with the following format:
     # hsi_query['query_id']:    The HSI queryID in string format.  
     #                           This is passed to the hive kill query command
@@ -627,13 +659,13 @@ def kill_hsi_queries_exceeding_threshold(hsi_queries):
     # hsi_query['query_start_timestamp']:   Begin timestamp found in QUERY_SUBMITTED event fetched from ATS 
     #                                       This value is used to calculate if the query has exceeded the configured threshold;
     #                                       "kill_query_threshold_seconds" loaded from the config.json file
-    
+    # hsi_query['request_users']: User(s) the request was run under/for
     # Retrieve kill query threshold from RUNNER_CONFIG
     kill_threshold = get_hsi_query_kill_threshold()
     for hsi_query in hsi_queries:
         if hsi_query['query_complete_timestamp'] is not None:
             continue
-        if should_kill(hsi_query['query_start_timestamp'], kill_threshold):
+        if should_kill(hsi_query['query_start_timestamp'], kill_threshold, hsi_query['request_users']):
             # Sending as a list object for now.  Had intended to implement batching in kill method
             kill_query([hsi_query['query_id']])
 
@@ -657,7 +689,7 @@ def get_ats_events(window_begin_timestamp=None, window_end_timestamp=None, batch
         , batch_size=request_batch_size)
 
     # Queries to kill are collected into a list as ats event batches are processed
-    kill_hsi_queries_exceeding_threshold(hive_query_events)
+    kill_hsi_queries(hive_query_events)
 
     _logger.debug('Returning ATS_REQUEST_WINDOW_END_TIMESTAMP: {0}'.format(ats_request_window_end_timestamp))
     # Return starttime timestamp of last event retrieved
