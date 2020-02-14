@@ -460,6 +460,7 @@ This function will first call kdestroy to delete any cached security context for
 and then call kinit
 """
 def initialize_security_context(user, keytab_file):
+    sleep_seconds = get_sleep_seconds()
     kdestroy()
     time.sleep(sleep_seconds)
     kinit(user, keytab_file)
