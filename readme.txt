@@ -23,21 +23,30 @@ Example:
 /home/dansha/scripts/llap_query_watcher.py
 /home/dansha/scripts/conf/config.json
 
-4. The script is intended to be executed as a schedule task, and has been tested with cron.  Use the crontab -e
+4. Run the linux chmod command to make the script executable by owner.  
+Example:
+chmod 764 llap_query_watcher.py
+
+5. The script is intended to be executed as a scheduled task, and has been tested with cron.  Use the crontab -e
 command to edit the crontab of the logged on user (if appropriate), and add a line similar to the following that executes the script every 15 minutes:
+NOTE: 	The use of cd command to set the current working directory before launching the script. 
+	This required as the script uses a relative path to load its configuration file config.json from the conf folder
+#
 # m h  dom mon dow   command
-*/15 * * * * /home/dansha/llap_query_watcher.py
+*/15 * * * * cd /home/dansha/llap_watcher-master && /home/dansha/llap_query_watcher.py
 
 
 5. If the the cluster where the script is deployed is kerberized, there are the following additional requirements:
-5.a You must install the requests_kerberos module on the host where the script will be executed using the following command:
+5.a The script has a dependency on the requests_kerberos library. You must install the requests_kerberos module on the host where the script will be executed using the following command:
 pip3 install requests_kerberos
 5.b Select a domain account the script will utilize to kinit with the KDC, and name to the runner_kerberos_config in the config.json:
 "runner_kerberos_config": {
-       "runner_kerberos_user_keytab_location": "/home/sshuser/dansha.keytab",
-       "runner_kerberos_user": "dansha"
+       "runner_kerberos_user_keytab_location": "/home/user/user.keytab",
+       "runner_kerberos_user": "user@MYREALM.COM"
 }
-5.c Use the Kerberos ktutil command to create a keytab for the runner_kerberos_user, and properly configure the file and folder permissions so the runner_kerberos_user can access the keytab file but no unauthorized users can.  You can follow the instructions in the public HDInsight documentation:
+5.c You must pre-create the required keytab. 
+Use the Kerberos ktutil command to create a keytab for the runner_kerberos_user, and properly configure the file and folder permissions so the runner_kerberos_user can access the keytab file but no unauthorized users can.  
+You can follow the instructions in the public HDInsight documentation:
 [https://docs.microsoft.com/en-us/azure/hdinsight/hdinsight-faq#security-and-certificates]
 ktutil
 ktutil: addent -password -p <username>@<DOMAIN.COM> -k 1 -e RC4-HMAC
@@ -80,7 +89,15 @@ CONFIG.JSON configuration file:
         "rest_request_retry_delay_seconds": 2,
         "rest_request_retry_count": 5,
         "kill_query_threshold_seconds": 3,
-        "sleep_seconds": 1
+        "sleep_seconds": 1,
+	"blacklist": {
+            "users": [
+                "admin",
+                "dansha",
+                "anonymous"
+            ],
+            "enabled": "True"
+        }
     }
 }
 
@@ -111,7 +128,17 @@ rest_performance_alert_threshold_seconds - The round-trip response time for each
 rest_request_retry_delay_seconds - The number of seconds to delay between retry attempts for failed REST requests.  Used in method get_with_retry()
 rest_request_retry_count - The number of times to retry a failed REST request before re-raising the exception to the caller.  Used in method get_with_retry()
 
-kill_query_threshold_seconds - If the script finds a currently executing query that has been running longer than kill_query_threshold_seconds, it will shell out a beeling process and kill the query.
+kill_query_threshold_seconds - If the script finds a currently executing query that has been running longer than kill_query_threshold_seconds, it will shell out a beeline process and kill the query.
+
+blacklist configuration - When "blacklisting" is enabled, an llap query will only be killed if two conditions are met:
+	1. The query duration has exceeded the configured threshold of kill_query_threshold_seconds
+	2. The user that the query is running under, is one of the users specified in the [blacklist][users] list.  Format of list is like that above.  One user on each line, specified as a double-quoted string.
+
+	If blackisting is disabled, only condition 1 above has to be met for a query to be killed
+
+	If blacklisting is enabled and the script finds a query that exceeds the configured threshold, yet the user is not a member of [blacklist][users], the query will not be killed.
+
+	To disable the blacklisting feature, you must set enabled to "False", and yes, the "F" in "False" must be captialized.
 
 sleep_seconds - used in initialize_security_context() function between call to kdestroy and kinit
 
