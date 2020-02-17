@@ -1,40 +1,48 @@
 {
     "runnerConfig": {
-        "kill_query_threshold_seconds": 1800,
+        "sleep_seconds": 1,
         "headnodehost": "headnodehost",
-        "rest_request_retry_delay_seconds": 2,
-        "rest_performance_alert_threshold_seconds": 5,
+        "rest_request_retry_count": 5,
         "ambari_server_port": 8080,
-        "credentials": {
-            "password": "<password>",
-            "username": "admin"
-        },
-        "yarn_rm_port": 8088,
+        "yarn_rest_endpoint": "ws/v1/cluster",
         "logging_config": {
-            "max_number_log_files": 7,
             "log_level": "DEBUG",
-            "watcher_log_directory": "llap_watcher_logs",
-            "watcher_log_name": "llap_watcher.log"
+            "max_number_log_files": 7,
+            "watcher_log_name": "llap_watcher.log",
+            "watcher_log_directory": "llap_watcher_logs"
         },
-        "ats_rest_endpoint": "ws/v1/timeline",
-        "ambari_rest_protocol": "http",
-        "ats_rest_protocol": "http",
         "runner_kerberos_config": {
             "runner_kerberos_user_keytab_location": "/home/sshuser/dansha.keytab",
             "runner_kerberos_user": "dansha"
         },
-        "yarn_rest_endpoint": "ws/v1/cluster",
-        "ambari_rest_endpoint": "api/v1/clusters",
-        "sleep_seconds": 1,
+        "credentials": {
+            "password": "<password>",
+            "username": "admin"
+        },
+        "hiveserver2_thrift_port": 10001,
+        "ambari_rest_protocol": "http",
+        "kill_query_threshold_seconds": 3,
+        "blacklist": {
+            "users": [
+                "admin",
+                "dansha",
+                "anonymous"
+            ],
+            "enabled": "True"
+        },
+        "ats_rest_protocol": "http",
+        "yarn_rm_port": 8088,
+        "rest_request_retry_delay_seconds": 2,
+        "ats_rest_endpoint": "ws/v1/timeline",
         "ats_http_port": 8188,
-        "rest_request_retry_count": 5,
+        "ambari_rest_endpoint": "api/v1/clusters",
         "yarn_rest_protocol": "http",
         "hdinsight_public_endpoint_port": 433,
+        "rest_performance_alert_threshold_seconds": 5,
         "ats_request_query_parameters": {
-            "lookback_window_begin_timestamp": 0,
             "ats_request_batch_size": 10,
+            "lookback_window_begin_timestamp": 0,
             "lookback_window_hours": 120
-        },
-        "hiveserver2_thrift_port": 10001
+        }
     }
 }
