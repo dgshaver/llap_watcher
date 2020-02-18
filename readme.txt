@@ -40,18 +40,18 @@ NOTE: 	The use of cd command to set the current working directory before launchi
 */15 * * * * cd /home/dansha/llap_watcher-master && /home/dansha/llap_query_watcher.py
 
 
-5. If the the cluster where the script is deployed is kerberized, there are the following additional requirements:
+6. If the the cluster where the script is deployed is kerberized, there are the following additional requirements:
 
-5.a The script has a dependency on the requests_kerberos library. You must install the requests_kerberos module on the host where the script will be executed using the following command:
+6.a The script has a dependency on the requests_kerberos library. You must install the requests_kerberos module on the host where the script will be executed using the following command:
 pip3 install requests_kerberos
 
-5.b Select a domain account the script will utilize to kinit with the KDC, and add the name to the runner_kerberos_config in the config.json:
+6.b Select a domain account the script will utilize to kinit with the KDC, and add the name to the runner_kerberos_config in the config.json:
 "runner_kerberos_config": {
        "runner_kerberos_user_keytab_location": "/home/user/user.keytab",
        "runner_kerberos_user": "user@MYREALM.COM"
 }
 
-5.c You must pre-create the required keytab. 
+6.c You must pre-create the required keytab. 
 Use the Kerberos ktutil command to create a keytab for the runner_kerberos_user, and properly configure the file and folder permissions so the runner_kerberos_user can access the keytab file but no unauthorized users can.  
 You can follow the instructions in the public HDInsight documentation:
 [https://docs.microsoft.com/en-us/azure/hdinsight/hdinsight-faq#security-and-certificates]
