@@ -39,7 +39,7 @@ NOTE: 	The use of cd command to set the current working directory before launchi
 5. If the the cluster where the script is deployed is kerberized, there are the following additional requirements:
 5.a The script has a dependency on the requests_kerberos library. You must install the requests_kerberos module on the host where the script will be executed using the following command:
 pip3 install requests_kerberos
-5.b Select a domain account the script will utilize to kinit with the KDC, and name to the runner_kerberos_config in the config.json:
+5.b Select a domain account the script will utilize to kinit with the KDC, and add the name to the runner_kerberos_config in the config.json:
 "runner_kerberos_config": {
        "runner_kerberos_user_keytab_location": "/home/user/user.keytab",
        "runner_kerberos_user": "user@MYREALM.COM"
@@ -78,7 +78,7 @@ CONFIG.JSON configuration file:
 	"ambari_rest_endpoint": "api/v1/clusters",	
 	"ambari_rest_protocol": "http",
 	"ambari_server_port": 8080,
-        "ats_rest_protocol": "http",
+        ll"ats_rest_protocol": "http",
         "ats_rest_endpoint": "ws/v1/timeline",
 	"ats_http_port": 8188,
         "yarn_rest_protocol": "http",
@@ -90,7 +90,7 @@ CONFIG.JSON configuration file:
         "rest_request_retry_count": 5,
         "kill_query_threshold_seconds": 3,
         "sleep_seconds": 1,
-	"blacklist": {
+	"whitelist": {
             "users": [
                 "admin",
                 "dansha",
@@ -130,15 +130,15 @@ rest_request_retry_count - The number of times to retry a failed REST request be
 
 kill_query_threshold_seconds - If the script finds a currently executing query that has been running longer than kill_query_threshold_seconds, it will shell out a beeline process and kill the query.
 
-blacklist configuration - When "blacklisting" is enabled, an llap query will only be killed if two conditions are met:
+whitelist configuration - When "whitelisting" is enabled, [whitelist][enabled] = True, an llap query will only be killed if two conditions are met:
 	1. The query duration has exceeded the configured threshold of kill_query_threshold_seconds
-	2. The user that the query is running under, is one of the users specified in the [blacklist][users] list.  Format of list is like that above.  One user on each line, specified as a double-quoted string.
+	2. The user that the query is running under, is not one of the users specified in the [whiteslist][users] list.  Format of list is like that above.  One user on each line, specified as a double-quoted string.
 
-	If blackisting is disabled, only condition 1 above has to be met for a query to be killed
+	If whitelisting is disabled, only condition 1 above has to be met for a query to be killed
 
-	If blacklisting is enabled and the script finds a query that exceeds the configured threshold, yet the user is not a member of [blacklist][users], the query will not be killed.
+	If whitelistng is enabled, and the script finds a query that exceeds the configured threshold, yet the user is a member of [whitelist][users], the query will not be killed.
 
-	To disable the blacklisting feature, you must set enabled to "False", and yes, the "F" in "False" must be captialized.
+	To disable the whitelisting feature, you must set enabled to "False".  The "F" in "False" must be captialized since the value is cast to a Python bool by the script
 
 sleep_seconds - used in initialize_security_context() function between call to kdestroy and kinit
 

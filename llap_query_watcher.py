@@ -311,38 +311,38 @@ def executeCmd(cmd):
         raise Exception(stderr)
     
 """
-Check if a request_user is in the list of blacklist users.  request_users is a list
+Check if a request_user is in the list of whitelist users:
+config.json -> whitelist.users
 """
-def is_blacklist_user(request_users):
-    blacklist_users = get_blacklist_users()
+def is_whitelist_user(request_users):
+    whitelist_users = get_whitelist_users()
     for request_user in request_users:
-        if request_user in blacklist_users:
+        if request_user in whitelist_users:
             return(True)
     return(False)
 
 """
 This function considers two factors in determining whether a query should be killed:
-1.  Does the query's current duration exceed the configured threshold.
-    subtracts the starttime from the current system time, and returns a boolean 
-    indicating whether the task has been running for longer than KILL_THRESHOLD_SECONDS
+1.  Does the query's current duration exceed the configured threshold?
+    Subtracts the starttime from the current system time, and returns a boolean 
+    indicating whether the task has been running for longer than kill_threshold seconds
     starttime - timestamp in seconds
-2.  If "blacklisting" is enabled, only kill a query that meets condition 1 if the query is being executed
-    by a "blacklisted" user
+2.  If "whitelist" is enabled, only kill a query that meets condition 1 if the query if
+    a. The whitelist feature is enabled
+    b. The request_user is not a member of the configured whitelist specified in config.json
 """
 def should_kill(starttime, kill_threshold, request_users):
-    # First, determine whether query exceeds the configured kill_threshold
+    # Is this a whitelisted request?
+    kill_query = False if bool(is_whitelisting_enabled) and is_whitelist_user(request_users) else True
+
+    # Determine whether query exceeds the configured kill_threshold
     current_time_seconds = int(time.time())
     duration_in_seconds = current_time_seconds - starttime
-    blacklisting_enabled = bool(is_blacklisting_enabled())
-    _logger.debug('Blacklisting Enabled: {0} CurrentTime: {1} StartTime: {2} QueryDuration: {3} KILL_THRESHOLD_SECONDS: {4}' \
-	.format(blacklisting_enabled, current_time_seconds,starttime,duration_in_seconds,kill_threshold))
+    _logger.debug('whitelisted: {0} current_time: {1} start_time: {2} query_duration: {3} kill_threshold_seconds: {4}' \
+    .format(not kill_query, current_time_seconds,starttime,duration_in_seconds,kill_threshold))
 
-    # Blacklist checks
-    if blacklisting_enabled == True:
-        return(duration_in_seconds >= kill_threshold and is_blacklist_user(request_users))
-    else:
-        # Blacklisting not enabled, just check duration against configured kill threshold
-        return(duration_in_seconds >= kill_threshold)
+    return(duration_in_seconds >= kill_threshold and kill_query)
+
 
 """
 Launch beeline process to each query in queries_to_kill
@@ -453,11 +453,11 @@ def get_rest_request_retry_delay_seconds():
 
 def get_hsi_query_kill_threshold():
     return(RUNNER_CONFIG['runnerConfig']['kill_query_threshold_seconds'])
-def get_blacklist_users():
-    return(RUNNER_CONFIG['runnerConfig']['blacklist']['users'])
+def get_whitelist_users():
+    return(RUNNER_CONFIG['runnerConfig']['whitelist']['users'])
 
-def is_blacklisting_enabled():
-    return(RUNNER_CONFIG['runnerConfig']['blacklist']['enabled'])
+def is_whitelisting_enabled():
+    return(RUNNER_CONFIG['runnerConfig']['whitelist']['enabled'])
 
 def get_rest_performance_alert_threshold_seconds():
     return(RUNNER_CONFIG['runnerConfig']['rest_performance_alert_threshold_seconds'])

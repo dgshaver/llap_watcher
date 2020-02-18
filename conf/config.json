@@ -12,8 +12,8 @@
             "watcher_log_directory": "llap_watcher_logs"
         },
         "runner_kerberos_config": {
-            "runner_kerberos_user_keytab_location": "/home/sshuser/dansha.keytab",
-            "runner_kerberos_user": "dansha"
+            "runner_kerberos_user_keytab_location": "/home/user/user.keytab",
+            "runner_kerberos_user": "user@REALM.COM"
         },
         "credentials": {
             "password": "<password>",
@@ -22,10 +22,9 @@
         "hiveserver2_thrift_port": 10001,
         "ambari_rest_protocol": "http",
         "kill_query_threshold_seconds": 3,
-        "blacklist": {
+        "whitelist": {
             "users": [
                 "admin",
-                "dansha",
                 "anonymous"
             ],
             "enabled": "True"
