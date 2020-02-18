@@ -9,19 +9,23 @@ HDI 4.0 deploys Hive 3.x which has a feature called Hive Triggers that can be us
 Overview:
 The llap_query_watcher script is designed to be run on a periodic basis via a task scheduler like cron. 
 
-When the script begins execution, it opens its configuration file, config/config.json, to retrieve run-time settings and initialize its "state". After initialization is complete, the script calculates a time-range, or "window", of Application Timeline Server (ATS) events it will process for the current run. The script consumes batches of HIVE_QUERY events from ATS, and looks for queries that have been executing for longer than the configured threshold.  If a query is found to have exceeded the configured threshold, the script "shells out" a beeline process to run a "kill query" command to terminate the long-running query.
+When the script begins execution, it opens its configuration file, conf/config.json, to retrieve run-time settings and initialize its "state". 
+
+After initialization is complete, the script calculates a time-range, or "window", of HIVE_QUERY Application Timeline Server (ATS) events it will process for the current run. The script consumes batches of HIVE_QUERY events from ATS, and looks for queries that have been executing for longer than the configured threshold.  If a query is found to have exceeded the configured threshold, and the user that submitted the query isn't a "whitelisted" user, the script "shells out" a beeline process to run a "kill query" command to terminate the long-running query.
 
 When the script finishes execution, it saves the high-watermark (timestamp) of the most recent event processed to the aforementioned configuration file.  The next susbsequent execution of the script will consume the previous run's high-watermark value and use it as the lower bound of the window of ATS events to process.
 
 Installation Instructions:
 The script requires the following configuration:
 1. The script was written and tested with Python 3.5 on HDI 3.6 Interactive Hive clusters
-2. The script, llap_query_watcher.py, must be copied to the local drive of one of the cluster headnodes. REST requests issues by the script target internal cluster endpoints.
+2. The script, llap_query_watcher.py, must be copied to the local drive of one of the cluster headnodes. It's probably easiest to download the zip from this git repo and extract it to the local drive. The script must be hosted on one of the cluster headnodes as it issues REST requests against "internal" cluster endpoints; not the cluster's public endpoint.
 3. By default, the cluster's configuration, config.json, should be stored in a subdirectory named "conf" that's created in the same folder where the llap_query_watcher script resides:
 
 Example:
-/home/dansha/scripts/llap_query_watcher.py
-/home/dansha/scripts/conf/config.json
+/home/dansha/llap_watcher-master/llap_query_watcher.py
+/home/dansha/llap_watcher-master/conf/config.json
+
+Edit the config.json file to allow for proper functioning of the script.  At a minimum, you'll need to specify the cluster's Ambari admin credentials in the credentials section of the config.json file. 
 
 4. Run the linux chmod command to make the script executable by owner.  
 Example:
@@ -37,13 +41,16 @@ NOTE: 	The use of cd command to set the current working directory before launchi
 
 
 5. If the the cluster where the script is deployed is kerberized, there are the following additional requirements:
+
 5.a The script has a dependency on the requests_kerberos library. You must install the requests_kerberos module on the host where the script will be executed using the following command:
 pip3 install requests_kerberos
+
 5.b Select a domain account the script will utilize to kinit with the KDC, and add the name to the runner_kerberos_config in the config.json:
 "runner_kerberos_config": {
        "runner_kerberos_user_keytab_location": "/home/user/user.keytab",
        "runner_kerberos_user": "user@MYREALM.COM"
 }
+
 5.c You must pre-create the required keytab. 
 Use the Kerberos ktutil command to create a keytab for the runner_kerberos_user, and properly configure the file and folder permissions so the runner_kerberos_user can access the keytab file but no unauthorized users can.  
 You can follow the instructions in the public HDInsight documentation:
@@ -54,49 +61,52 @@ Password for <username>@<DOMAIN.COM>: <password>
 ktutil: wkt <username>.keytab
 ktutil: q
 
-Now, update the runner_kerberos_config with the full path to the keytab file.
+Now, update the "runner_kerberos_config" with the full path to the keytab file.
 
 CONFIG.JSON configuration file:
-{
     "runnerConfig": {
-        "ats_request_query_parameters": {
-            "lookback_window_hours": 120,
-            "ats_request_batch_size": 10,
-            "lookback_window_begin_timestamp": 1580927381495
-        },
+        "sleep_seconds": 1,
+        "headnodehost": "headnodehost",
+        "rest_request_retry_count": 5,
+        "ambari_server_port": 8080,
+        "yarn_rest_endpoint": "ws/v1/cluster",
         "logging_config": {
             "log_level": "DEBUG",
-            "watcher_log_name": "llap_watcher.log",
             "max_number_log_files": 7,
+            "watcher_log_name": "llap_watcher.log",
             "watcher_log_directory": "llap_watcher_logs"
         },
-        "headnodehost": "headnodehost",
         "runner_kerberos_config": {
-            "runner_kerberos_user_keytab_location": "/home/sshuser/dansha.keytab",
-            "runner_kerberos_user": "dansha"
+            "runner_kerberos_user_keytab_location": "/home/user/user.keytab",
+            "runner_kerberos_user": "user@REALM.COM"
         },
-	"ambari_rest_endpoint": "api/v1/clusters",	
-	"ambari_rest_protocol": "http",
-	"ambari_server_port": 8080,
-        ll"ats_rest_protocol": "http",
-        "ats_rest_endpoint": "ws/v1/timeline",
-	"ats_http_port": 8188,
-        "yarn_rest_protocol": "http",
-        "yarn_rest_endpoint": "ws/v1/cluster",
-        "yarn_rm_port": 8088,
+        "credentials": {
+            "password": "<password>",
+            "username": "admin"
+        },
         "hiveserver2_thrift_port": 10001,
-        "rest_performance_alert_threshold_seconds": 5,
-        "rest_request_retry_delay_seconds": 2,
-        "rest_request_retry_count": 5,
+        "ambari_rest_protocol": "http",
         "kill_query_threshold_seconds": 3,
-        "sleep_seconds": 1,
-	"whitelist": {
+        "whitelist": {
             "users": [
                 "admin",
-                "dansha",
                 "anonymous"
             ],
             "enabled": "True"
+        },
+        "ats_rest_protocol": "http",
+        "yarn_rm_port": 8088,
+        "rest_request_retry_delay_seconds": 2,
+        "ats_rest_endpoint": "ws/v1/timeline",
+        "ats_http_port": 8188,
+        "ambari_rest_endpoint": "api/v1/clusters",
+        "yarn_rest_protocol": "http",
+        "hdinsight_public_endpoint_port": 433,
+        "rest_performance_alert_threshold_seconds": 5,
+        "ats_request_query_parameters": {
+            "ats_request_batch_size": 10,
+            "lookback_window_begin_timestamp": 0,
+            "lookback_window_hours": 120
         }
     }
 }
