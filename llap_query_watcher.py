@@ -27,7 +27,7 @@ from socket import getfqdn, gethostname
 _logger = None
 # Cluster admin user and password. 
 SLEEP_SECONDS = None
-# Store runtime configuration in RUNNER_CONFIG so it can be re-written at shutdown
+# Store runtime configuration in RUNNER_CONFIG so it can be re-written at shutdown 
 RUNNER_CONFIG = None
 # HDI_CLUSTER configuration.  Stores instantiation of HDINsigtCluster class
 HDI_CLUSTER = None

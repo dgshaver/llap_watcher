@@ -21,7 +21,7 @@
         },
         "hiveserver2_thrift_port": 10001,
         "ambari_rest_protocol": "http",
-        "kill_query_threshold_seconds": 3,
+        "kill_query_threshold_seconds": 500,
         "whitelist": {
             "users": [
                 "admin",
