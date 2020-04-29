@@ -152,5 +152,8 @@ whitelist configuration - When "whitelisting" is enabled, [whitelist][enabled] =
 
 sleep_seconds - used in initialize_security_context() function between call to kdestroy and kinit
 
+headnodehost - 	Please leave this parameter set to its default value of "headnodehost".  
+		Modifying this parameter will cause script execution to fail under certain scenarios.
+
 Remaining parameters are self-explanatory.
 
