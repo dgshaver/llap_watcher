@@ -37,7 +37,7 @@ NOTE: 	The use of cd command to set the current working directory before launchi
 	This required as the script uses a relative path to load its configuration file config.json from the conf folder
 #
 # m h  dom mon dow   command
-*/15 * * * * cd /home/dansha/llap_watcher-master && /home/dansha/llap_query_watcher.py
+*/15 * * * * cd /home/dansha/llap_watcher-master && ./llap_query_watcher.py
 
 
 6. If the the cluster where the script is deployed is kerberized, there are the following additional requirements:
