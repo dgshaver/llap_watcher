@@ -146,14 +146,14 @@ class HDInsightCluster:
         _logger.info("Constructing jdbc connection string for cluster {0} ...".format(self.hdi_cluster_dns_name))
         # If cluster is kerberized
         if self.authentication_protocol['KERBEROS'] == self.hdi_cluster_security_protocol:
-        HIVE_CONFIGURATION_PARAMS = '{0}/configurations?type=hive-site&tag=TOPOLOGY_RESOLVED'.format( self.hdi_cluster_dns_name)
-        url = '{0}://{1}:{2}/{3}/{4}'.format(self.ambari_rest_protocol, self.headnodehost, self.ambari_server_port, self.ambari_rest_endpoint, HIVE_CONFIGURATION_PARAMS)
-        response = get(url, self.ambari_admin_user, self.ambari_admin_user_password)
-        body = response.json()
-        hiveserver2_authentication_principal = body['items'][0]['properties']['hive.server2.authentication.kerberos.principal']
-        self.hivesever2_jdbc_connection_string = \
-            'jdbc:hive2://{0}:{1}/default;principal={2};auth-kerberos;transportMode=http' \
-            .format(self.hiveserver2_interactive_execution_host_fqdn, self.hiveserver2_thrift_port, hiveserver2_authentication_principal)
+            HIVE_CONFIGURATION_PARAMS = '{0}/configurations?type=hive-site&tag=TOPOLOGY_RESOLVED'.format( self.hdi_cluster_dns_name)
+            url = '{0}://{1}:{2}/{3}/{4}'.format(self.ambari_rest_protocol, self.headnodehost, self.ambari_server_port, self.ambari_rest_endpoint, HIVE_CONFIGURATION_PARAMS)
+            response = get(url, self.ambari_admin_user, self.ambari_admin_user_password)
+            body = response.json()
+            hiveserver2_authentication_principal = body['items'][0]['properties']['hive.server2.authentication.kerberos.principal']
+            self.hivesever2_jdbc_connection_string = \
+                'jdbc:hive2://{0}:{1}/default;principal={2};auth-kerberos;transportMode=http' \
+                .format(self.hiveserver2_interactive_execution_host_fqdn, self.hiveserver2_thrift_port, hiveserver2_authentication_principal)
         else:
             # hive_zookeeper_quorum = body.items[0]['properties']['hive.zookeeper.quorum']
             self.hivesever2_jdbc_connection_string = \
@@ -176,12 +176,12 @@ class HDInsightCluster:
         LLAP_APPLICATION_NAME = 'llap0'
         YARN_QUEUE_NAME = 'llap'
         YARN_APPLICATION_STATE_RUNNING = 'RUNNING'
-         # LLAP 2.1 uses an application type of org-apache-slider, whereas LLAP 3.1 uses an application type of yarn-service
+        # LLAP 2.1 uses an application type of org-apache-slider, whereas LLAP 3.1 uses an application type of yarn-service
         LLAP_YARN_APPLICATION_TYPES = ['org-apache-slider', 'yarn-service']
 
         # REST request parameters.  
         # No attempt is made to find the "active" RM. Instead we rely on RM client to re-direct the request if necessary
-        parameters = {'queue': YARN_QUEUE_NAME, 'applicationTypes': LLAP_YARN_APPLICATION_TYPES}        
+        parameters = {'queue': YARN_QUEUE_NAME, 'applicationTypes': LLAP_YARN_APPLICATION_TYPES}
         url = '{0}://{1}:{2}/{3}/apps'.format(self.yarn_rest_protocol, self.headnodehost_fqdn, self.yarn_rm_service_port, self.yarn_rest_endpoint)
         authentication_protocol = 'KERBEROS' if self.hdi_cluster_security_protocol == 'KERBEROS' else 'NONE'
 
@@ -340,7 +340,7 @@ This function considers two factors in determining whether a query should be kil
 """
 def should_kill(starttime, kill_threshold, request_users):
     # Is this a whitelisted request?
-     kill_query = False if is_whitelisting_enabled() and is_whitelist_user(request_users) else True
+    kill_query = False if is_whitelisting_enabled() and is_whitelist_user(request_users) else True
 
     # Determine whether query exceeds the configured kill_threshold
     current_time_seconds = int(time.time())
