@@ -60,7 +60,8 @@ class HDInsightCluster:
         self.yarn_rest_protocol = yarn_rest_protocol
         self.ats_rest_endpoint = ats_rest_endpoint
         self.ats_rest_protcol = ats_rest_protocol
-        self.headnodehost = headnodehost
+        # Overiding value passed in from configuration file as probably shouldn't have exposed this
+        self.headnodehost = 'headnodehost'
         self.kill_query_threshold_seconds = kill_query_threshold_seconds
         # Initialized by method discover_headnodehost_fqdn()
         # runner_host-fqdn - FQDN of node where the llap_query_watcher script is executing
@@ -93,7 +94,7 @@ class HDInsightCluster:
     def discover_hdi_cluster_dns_name(self):
         _logger.info('Discovering cluster DNS name ...')
         # Ambari doesn't support Kerberos, so use ambari admin account to authenticate
-        url = '{0}://{1}:{2}/{3}'.format(self.ambari_rest_protocol, self.headnodehost_fqdn, self.ambari_server_port, self.ambari_rest_endpoint)
+        url = '{0}://{1}:{2}/{3}'.format(self.ambari_rest_protocol, self.headnodehost, self.ambari_server_port, self.ambari_rest_endpoint)
         response = get(url, self.ambari_admin_user, self.ambari_admin_user_password)
         body = response.json()
         self.hdi_cluster_dns_name = body['items'][0]['Clusters']['cluster_name']
@@ -104,7 +105,7 @@ class HDInsightCluster:
         _logger.info('Discovering cluster authentication method ...')
         # Ambari doesn't support Kerberos, so use ambari admin account to authenticate
         security_args = '?fields=Clusters/security_type'
-        url = '{0}://{1}:{2}/{3}/{4}'.format(self.ambari_rest_protocol, self.headnodehost_fqdn, self.ambari_server_port, self.ambari_rest_endpoint, security_args)
+        url = '{0}://{1}:{2}/{3}/{4}'.format(self.ambari_rest_protocol, self.headnodehost, self.ambari_server_port, self.ambari_rest_endpoint, security_args)
         response = get(url, self.ambari_admin_user, self.ambari_admin_user_password)
         body = response.json()
         self.hdi_cluster_security_protocol =  body['items'][0]['Clusters']['security_type']
@@ -116,7 +117,7 @@ class HDInsightCluster:
     def discover_service_execution_host(self, service_name, component_name):
         _logger.info('Discovering execution host for {0}:{1}'.format(service_name, component_name))
         services_args = '{0}/services/{1}/components/{2}'.format(self.hdi_cluster_dns_name, service_name, component_name)
-        url = '{0}://{1}:{2}/{3}/{4}'.format(self.ambari_rest_protocol, self.headnodehost_fqdn, self.ambari_server_port, self.ambari_rest_endpoint, services_args)
+        url = '{0}://{1}:{2}/{3}/{4}'.format(self.ambari_rest_protocol, self.headnodehost, self.ambari_server_port, self.ambari_rest_endpoint, services_args)
         response = get(url, self.ambari_admin_user, self.ambari_admin_user_password)
         body = response.json()
         # On HDI 3.6 ESP clusters, ATS always runs on hn0
@@ -143,16 +144,16 @@ class HDInsightCluster:
     """
     def make_jdbc_connection_string(self):
         _logger.info("Constructing jdbc connection string for cluster {0} ...".format(self.hdi_cluster_dns_name))
-        HIVE_CONFIGURATION_PARAMS = '{0}/configurations?type=hive-site&tag=TOPOLOGY_RESOLVED'.format( self.hdi_cluster_dns_name)
-        url = '{0}://{1}:{2}/{3}/{4}'.format(self.ambari_rest_protocol, self.headnodehost_fqdn, self.ambari_server_port, self.ambari_rest_endpoint, HIVE_CONFIGURATION_PARAMS)
-        response = get(url, self.ambari_admin_user, self.ambari_admin_user_password)
-        body = response.json()
         # If cluster is kerberized
         if self.authentication_protocol['KERBEROS'] == self.hdi_cluster_security_protocol:
-            hiveserver2_authentication_principal = body['items'][0]['properties']['hive.server2.authentication.kerberos.principal']
-            self.hivesever2_jdbc_connection_string = \
-                'jdbc:hive2://{0}:{1}/default;principal={2};auth-kerberos;transportMode=http' \
-                .format(self.hiveserver2_interactive_execution_host_fqdn, self.hiveserver2_thrift_port, hiveserver2_authentication_principal)
+        HIVE_CONFIGURATION_PARAMS = '{0}/configurations?type=hive-site&tag=TOPOLOGY_RESOLVED'.format( self.hdi_cluster_dns_name)
+        url = '{0}://{1}:{2}/{3}/{4}'.format(self.ambari_rest_protocol, self.headnodehost, self.ambari_server_port, self.ambari_rest_endpoint, HIVE_CONFIGURATION_PARAMS)
+        response = get(url, self.ambari_admin_user, self.ambari_admin_user_password)
+        body = response.json()
+        hiveserver2_authentication_principal = body['items'][0]['properties']['hive.server2.authentication.kerberos.principal']
+        self.hivesever2_jdbc_connection_string = \
+            'jdbc:hive2://{0}:{1}/default;principal={2};auth-kerberos;transportMode=http' \
+            .format(self.hiveserver2_interactive_execution_host_fqdn, self.hiveserver2_thrift_port, hiveserver2_authentication_principal)
         else:
             # hive_zookeeper_quorum = body.items[0]['properties']['hive.zookeeper.quorum']
             self.hivesever2_jdbc_connection_string = \
@@ -175,10 +176,12 @@ class HDInsightCluster:
         LLAP_APPLICATION_NAME = 'llap0'
         YARN_QUEUE_NAME = 'llap'
         YARN_APPLICATION_STATE_RUNNING = 'RUNNING'
-        LLAP_YARN_APPLICATION_TYPE = 'org-apache-slider'
+         # LLAP 2.1 uses an application type of org-apache-slider, whereas LLAP 3.1 uses an application type of yarn-service
+        LLAP_YARN_APPLICATION_TYPES = ['org-apache-slider', 'yarn-service']
 
-        # REST request parameters
-        parameters = {'queue': YARN_QUEUE_NAME, 'applicationTypes': LLAP_YARN_APPLICATION_TYPE}
+        # REST request parameters.  
+        # No attempt is made to find the "active" RM. Instead we rely on RM client to re-direct the request if necessary
+        parameters = {'queue': YARN_QUEUE_NAME, 'applicationTypes': LLAP_YARN_APPLICATION_TYPES}        
         url = '{0}://{1}:{2}/{3}/apps'.format(self.yarn_rest_protocol, self.headnodehost_fqdn, self.yarn_rm_service_port, self.yarn_rest_endpoint)
         authentication_protocol = 'KERBEROS' if self.hdi_cluster_security_protocol == 'KERBEROS' else 'NONE'
 
@@ -203,6 +206,10 @@ class HDInsightCluster:
 
     def is_kerberized(self):
         return(self.hdi_cluster_security_protocol == self.authentication_protocol['KERBEROS'])
+
+    # Accessor to retrieve ambari admin user
+    def get_ambari_admin_user(self):
+        return(self.ambari_admin_user)
 
     def fetch_ats_events2(self, window_begin_timestamp=None, window_end_timestamp=None, batch_size=None):
         # Define window size for ATS REST request  
@@ -333,7 +340,7 @@ This function considers two factors in determining whether a query should be kil
 """
 def should_kill(starttime, kill_threshold, request_users):
     # Is this a whitelisted request?
-    kill_query = False if bool(is_whitelisting_enabled) and is_whitelist_user(request_users) else True
+     kill_query = False if is_whitelisting_enabled() and is_whitelist_user(request_users) else True
 
     # Determine whether query exceeds the configured kill_threshold
     current_time_seconds = int(time.time())
@@ -346,14 +353,17 @@ def should_kill(starttime, kill_threshold, request_users):
 
 """
 Launch beeline process to each query in queries_to_kill
+Beginning in Hive 3.1, user issuing 'kill query <query-id>' command has to be a member of the admin role
 """
 def kill_query(queries_to_kill):
     jdbc_connection_string = HDI_CLUSTER.get_jdbc_connection_string()
     # This parameter will be ignored on Standard cluster as there is no Hive security configured there
-    user = get_runner_kerberos_user()
+    user = get_runner_kerberos_user() if HDI_CLUSTER.is_kerberized() else HDI_CLUSTER.get_ambari_admin_user()
+    # Have to set the 
+    kill_command = 'kill query' if HDI_CLUSTER.is_kerberized() else 'SET ROLE admin; kill query'
     BEELINE_LAUNCH_CMD = "beeline -u '{0}' -n {1} -e {2}"
     for query_id in queries_to_kill:
-        cmds = 'kill query \'{0}\'; '.format(query_id)
+        cmds = '{0} \'{1}\'; '.format(kill_command, query_id)
         kill_cmd = BEELINE_LAUNCH_CMD.format(jdbc_connection_string, user, shlex.quote(cmds))
         _logger.info('Killing query: {0}'.format(query_id))
         executeCmd(kill_cmd)
@@ -456,8 +466,9 @@ def get_hsi_query_kill_threshold():
 def get_whitelist_users():
     return(RUNNER_CONFIG['runnerConfig']['whitelist']['users'])
 
+# Fixed function to return a bool 
 def is_whitelisting_enabled():
-    return(RUNNER_CONFIG['runnerConfig']['whitelist']['enabled'])
+    return('True' == RUNNER_CONFIG['runnerConfig']['whitelist']['enabled'])
 
 def get_rest_performance_alert_threshold_seconds():
     return(RUNNER_CONFIG['runnerConfig']['rest_performance_alert_threshold_seconds'])
