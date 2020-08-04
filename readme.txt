@@ -2,9 +2,11 @@ Script Puprose:
 Find Interactive Hive queries that have been running for longer than the configured threshold, and kill them.
 
 Assumptions:
-This script was designed to be run on HDInsight 3.6 Interactive Hive clusters. The script supports both ESP and Standard cluster types.
+This script was designed to be run on HDInsight 3.6, Interactive Hive 2.1 clusters, and has been adapted to run on HDInsight 4.0, Interactive Hive 3.1 clusters. Two additional configuration steps are required for HDInsight 4.0 Interactive Hive clusters that are not required on HDInsight 3.6 clusters.
 
-HDI 4.0 deploys Hive 3.x which has a feature called Hive Triggers that can be used to kill queries that exceed a given threshold if desired.  As such, this script was not tested on HDInsight 4.0.
+The script supports both ESP and Standard cluster types.
+
+HDI 4.0 deploys Hive 3.x which has a feature called Hive workload management.  Hive workload management includes Hive triggers. (Hive Triggers)[https://docs.cloudera.com/HDPDocuments/HDP3/HDP-3.1.5/hive-workload-commands/content/hive_create_trigger.html] can be used to kill queries that exceed a configured threshold if desired. As such, on HDInsight 4.0, Hive Triggers should be utilized in lieu of this script where possilbe.
 
 Overview:
 The llap_query_watcher script is designed to be run on a periodic basis via a task scheduler like cron. 
@@ -17,7 +19,7 @@ When the script finishes execution, it saves the high-watermark (timestamp) of t
 
 Installation Instructions:
 The script requires the following configuration:
-1. The script was written and tested with Python 3.5 on HDI 3.6 Interactive Hive clusters
+1. The script was written and tested with Python 3.5 on HDInsight 3.6 and HDInsight 4.0 Interactive Hive clusters
 2. The script, llap_query_watcher.py, must be copied to the local drive of one of the cluster headnodes. It's probably easiest to download the zip from this git repo and extract it to the local drive. The script must be hosted on one of the cluster headnodes as it issues REST requests against "internal" cluster endpoints; not the cluster's public endpoint.
 3. By default, the cluster's configuration, config.json, should be stored in a subdirectory named "conf" that's created in the same folder where the llap_query_watcher script resides:
 
@@ -38,7 +40,6 @@ NOTE: 	The use of cd command to set the current working directory before launchi
 #
 # m h  dom mon dow   command
 */15 * * * * cd /home/dansha/llap_watcher-master && ./llap_query_watcher.py
-
 
 6. If the the cluster where the script is deployed is kerberized, there are the following additional requirements:
 
@@ -131,6 +132,8 @@ logging_config - Utility uses the python logging library to log progress message
 
 runner_kerberos_config - Script will use these parameters to kinit on a Kerberized cluster so it can authenticate with cluster services
 
+credentials.username, credentials.password - the user name of the Ambari admin user specified at cluster creation time, and admin user's associated password
+
 rest_performance_alert_threshold_seconds - The round-trip response time for each REST request is compared with this integer alert threshold.  If the request took longer than threshold,
 					   and alert like the following is written to the watcher log:
  					   2020-02-05 20:27:20,244 WARNING - [get] : <PERFORMANCE ALERT> REST request round-trip response time: [0:00:06.235511] exceeds the alert threshold of: [0:00:05] seconds!
@@ -156,4 +159,47 @@ headnodehost - 	Please leave this parameter set to its default value of "headnod
 		Modifying this parameter will cause script execution to fail under certain scenarios.
 
 Remaining parameters are self-explanatory.
+
+Additional service-side configuration changes required for HDInsight 4.0 clusters:
+
+In summary, there are two additional configuration changes required to run the llap_query_watcher script against an HDInsight 4.0 Interactive Hive cluster.
+1. On "Standard" HDInsight clusters, Ambari admin user must be added to the Hive admin role.  On HDInsight 3.6 and HDInsight 4.0 ESP Interactive Hive clusters, the user the script is executing under has to have "serviceadmin" permissions assigned via Ranger.  
+2. Application Timeline Server, org.apache.hadoop.hive.ql.hooks.ATSHook, needs to be configured both a pre-exeuction hook and post-execution hook for Hive
+
+Necessary Permissions to run the "kill query" command:
+For "Standard" HDInsight 4.0 clusters, the script uses the value configured for credentials.username (see config.json), which should be the Ambari admin user, as the user that will execute the kill command.  Interactive Hive 3.1 requires, the configured username has to be a member of the Hive "admin" role to be authorized to run the "kill query" command. The Ambari admin user is not a member of the Hive admin role by default.  To authorize the Ambari admin user to execute the "kill query" command, please take the following steps:
+1. Log into your cluster's Ambari website
+2. Open the Hive settings, and give "focus" to the "ADVANCED" tab
+3. Navigate to the "Custom hive-site" section, and click "Add Property".  The "Add Property" dialog will open
+4. To the "Key" field, add hive.users.in.admin.role
+5. In the "Value" field, add account configured for credentials.username; this should be the ambari admin user
+6. Click the green "SAVE" button on the bottom right-hand side of the page, and add a note regarding your change to the "Save Configuration" dialog before clicking "SAVE" to dismiss the dialog.
+7. Click "PROCEED ANYWAY".  Do not click "RESTART" to restart the Hive services yet.
+
+If the user configured as credentials.username is not added to the Hive admin role, attempts to kill queries will fail indicating the user is not authorized
+
+Ranger changes required to authorize the runner_kerberos_user to kill queries on HDInsight ESP clusters:
+
+For Ranger clusters, a user is only authrorized to issue the "kill query" command if they have the "serviceadmin" permission assigned.  The HDInsight ESP cluster admin AD user is a member of the "all - hiveservice" role by default, and the "serviceadmin" permission is assigned to the 'all - hiveservice" role.
+
+If the user configured as the "runner_kerberos_user" is not the HDInsight ESP cluster admin AD user, the "runner_kerberos_user" must be granted "serviceadmin" permissions. You can either add the "runner_kerberos_user" to the "all - hiveservice" role via the Ranger admin UI, or you can create a custom Hive role via the Ranger Admin UI that includes the "serviceadmin" Hive permission, and add the runner_kerberos_user to the newly created custom role.
+
+Configure Interactive Hive 3.1 to log HIVE_QUERY events to Application Timeline Server:
+
+Interactive Hive 3.1 is no longer configured to log HIVE_QUERY events to Application Timeline Server (ATS) as it was in Interactive Hive 2.1. This script requires HIVE_QUERY events to be logged to ATS to function properly. You must add ATS to *BOTH* the hive.exec.pre.hooks and hive.exec.post.hooks Hive configuration settings, or the script will not function properly.
+
+To make the required configuration changes:
+1. Log into your cluster's Ambari website
+2. Open the Hive settings, and give "focus" to the "ADVANCED" tab
+3. Navigate to the "General" section, and locate the "hive.exec.pre.hooks" and "hive.exec.post.hooks" configuration settings. 
+4. Add org.apache.hadoop.hive.ql.hooks.ATSHook to BOTH "hive.exec.pre.hooks" and "hive.exec.post.hooks" by appending a single comma (",") directly after the existing entry, and then add org.apache.hadoop.hive.ql.hooks.ATSHook after the comma.  
+There should be NO whitespace between the comma, and org.apache.hadoop.hive.ql.hooks.ATSHook. The hive.exec.pre.hooks and hive.exec.post.hooks values should both be configured as follows when you are finished making your edits:
+org.apache.hadoop.hive.ql.hooks.HiveProtoLoggingHook,org.apache.hadoop.hive.ql.hooks.ATSHook
+5. Click the green "SAVE" button on the bottom right-hand side of the page, and add a note regarding your change to the "Save Configuration" dialog before clicking "SAVE" to dismiss the dialog.
+6. Click "PROCEED ANYWAY".  
+7. Now click the orange "RESTART" button in the top right-hand corner of the page, and click "Restart All Affected" to restart all hive services and install the changes.
+
+If anything goes wrong, remember you can revert to the prior configuration by selecting the cluster configuration "Version" that precedes the changes you made.
+
+
 
