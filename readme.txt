@@ -163,20 +163,21 @@ Remaining parameters are self-explanatory.
 Additional service-side configuration changes required for HDInsight 4.0 clusters:
 
 In summary, there are two additional configuration changes required to run the llap_query_watcher script against an HDInsight 4.0 Interactive Hive cluster.
-1. On "Standard" HDInsight clusters, Ambari admin user must be added to the Hive admin role.  On HDInsight 3.6 and HDInsight 4.0 ESP Interactive Hive clusters, the user the script is executing under has to have "serviceadmin" permissions assigned via Ranger.  
-2. Application Timeline Server, org.apache.hadoop.hive.ql.hooks.ATSHook, needs to be configured both a pre-exeuction hook and post-execution hook for Hive
+1. On "Standard" HDInsight clusters, user specified for the credentials.username config.json seeting, must be added to the Hive admin role.  On HDInsight 3.6 and HDInsight 4.0 ESP Interactive Hive clusters, the user the script is executing under has to have "serviceadmin" permissions assigned via Ranger.  
+2. Interactive Hive 3.1 needs to be configured to log HIVE_QUERY events to Application Timeline Server (ATS)
 
 Necessary Permissions to run the "kill query" command:
-For "Standard" HDInsight 4.0 clusters, the script uses the value configured for credentials.username (see config.json), which should be the Ambari admin user, as the user that will execute the kill command.  Interactive Hive 3.1 requires, the configured username has to be a member of the Hive "admin" role to be authorized to run the "kill query" command. The Ambari admin user is not a member of the Hive admin role by default.  To authorize the Ambari admin user to execute the "kill query" command, please take the following steps:
+For "Standard" HDInsight 4.0 clusters, the script uses the value configured for credentials.username (see config.json), which should be the Ambari admin user, as the user that will execute the "kill query" command when a query exceeds the configured threshold.  
+Interactive Hive 3.1 requires a user to be a member of the Hive "admin" role to be authorized to run the "kill query" command. The Ambari admin user is not a member of the Hive admin role by default.  To authorize the Ambari admin user to execute the "kill query" command, please take the following steps:
 1. Log into your cluster's Ambari website
 2. Open the Hive settings, and give "focus" to the "ADVANCED" tab
 3. Navigate to the "Custom hive-site" section, and click "Add Property".  The "Add Property" dialog will open
 4. To the "Key" field, add hive.users.in.admin.role
-5. In the "Value" field, add account configured for credentials.username; this should be the ambari admin user
+5. In the "Value" field, add the account configured for credentials.username. Again, this should be the ambari admin user
 6. Click the green "SAVE" button on the bottom right-hand side of the page, and add a note regarding your change to the "Save Configuration" dialog before clicking "SAVE" to dismiss the dialog.
 7. Click "PROCEED ANYWAY".  Do not click "RESTART" to restart the Hive services yet.
 
-If the user configured as credentials.username is not added to the Hive admin role, attempts to kill queries will fail indicating the user is not authorized
+NOTE: If the user configured as credentials.username is not added to the Hive admin role, attempts to kill queries will fail indicating the user is not authorized
 
 Ranger changes required to authorize the runner_kerberos_user to kill queries on HDInsight ESP clusters:
 
@@ -193,7 +194,8 @@ To make the required configuration changes:
 2. Open the Hive settings, and give "focus" to the "ADVANCED" tab
 3. Navigate to the "General" section, and locate the "hive.exec.pre.hooks" and "hive.exec.post.hooks" configuration settings. 
 4. Add org.apache.hadoop.hive.ql.hooks.ATSHook to BOTH "hive.exec.pre.hooks" and "hive.exec.post.hooks" by appending a single comma (",") directly after the existing entry, and then add org.apache.hadoop.hive.ql.hooks.ATSHook after the comma.  
-There should be NO whitespace between the comma, and org.apache.hadoop.hive.ql.hooks.ATSHook. The hive.exec.pre.hooks and hive.exec.post.hooks values should both be configured as follows when you are finished making your edits:
+There should be *NO* whitespace between the comma, and org.apache.hadoop.hive.ql.hooks.ATSHook. 
+The hive.exec.pre.hooks and hive.exec.post.hooks values should both be configured as follows when you are finished making your edits:
 org.apache.hadoop.hive.ql.hooks.HiveProtoLoggingHook,org.apache.hadoop.hive.ql.hooks.ATSHook
 5. Click the green "SAVE" button on the bottom right-hand side of the page, and add a note regarding your change to the "Save Configuration" dialog before clicking "SAVE" to dismiss the dialog.
 6. Click "PROCEED ANYWAY".  
