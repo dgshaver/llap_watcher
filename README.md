@@ -35,8 +35,8 @@ The script requires the following configuration:
 
 4. The script is intended to be executed as a scheduled task, and has been tested with cron.  Use the crontab -e
 command to edit the crontab of the logged on user (if appropriate), and add a line similar to the following that executes the script every 15 minutes:
-NOTE: 	The use of cd command to set the current working directory before launching the script. 
-	This required as the script uses a relative path to load its configuration file config.json from the conf folder
+
+	NOTE: 	The use of cd command to set the current working directory before launching the script.	This required as the script uses a relative path to load its configuration file config.json from the conf folder
 	```
 	# m h  dom mon dow   command
 	*/15 * * * * cd /home/dansha/llap_watcher-master && ./llap_query_watcher.py
@@ -57,7 +57,7 @@ NOTE: 	The use of cd command to set the current working directory before launchi
    pip3 install requests_kerberos
    ```
 
-   6.b Select a domain account the script will utilize to kinit with the KDC, and update the **runner_kerberos_user** with the chosen domain account. The runner_kerberos_user can be found in the runner_kerberos_config section of the conf/config.json file:
+   6.b Select a domain account the script will utilize to kinit with the KDC, and update the `runner_kerberos_user` with the chosen domain account. The `runner_kerberos_user` can be found in the `runner_kerberos_config` section of the `conf/config.json` file:
 	```
 	"runner_kerberos_config": {
 	    "runner_kerberos_user_keytab_location": "/home/user/user.keytab",
@@ -66,7 +66,7 @@ NOTE: 	The use of cd command to set the current working directory before launchi
 	```
 
    6.c You must pre-create the required keytab. 
-Use the Kerberos ktutil command to create a keytab for the `runner_kerberos_user`, and properly configure the file and folder permissions so the runner_kerberos_user can access the keytab file but no unauthorized users can.  
+Use the Kerberos `ktutil` command to create a keytab for the `runner_kerberos_user`, and properly configure the file and folder permissions so the `runner_kerberos_user` can access the keytab file but no unauthorized users can.  
 You can follow the instructions in the public [HDInsight documentation](https://docs.microsoft.com/en-us/azure/hdinsight/hdinsight-faq#security-and-certificates):
 	```
 	ktutil
@@ -108,7 +108,7 @@ You can follow the instructions in the public [HDInsight documentation](https://
 	3. Navigate to the "General" section, and locate the `hive.exec.pre.hooks` and `hive.exec.post.hooks` configuration settings. 
 	4. Add `org.apache.hadoop.hive.ql.hooks.ATSHook` to **BOTH** `hive.exec.pre.hooks` and `hive.exec.post.hooks` by appending a single comma (",") directly after the existing entry, and then add `org.apache.hadoop.hive.ql.hooks.ATSHook` after the comma.  
 	There should be *NO* whitespace between the comma, and `org.apache.hadoop.hive.ql.hooks.ATSHook`. 
-	The `hive.exec.pre.hooks` and `hive.exec.post.hooks` values should both be configured as follows when you are finished making your edits:
+	The `hive.exec.pre.hooks` and `hive.exec.post.hooks` values should both be configured as follows when you are finished making your edits:	
 	`org.apache.hadoop.hive.ql.hooks.HiveProtoLoggingHook,org.apache.hadoop.hive.ql.hooks.ATSHook`
 	5. Click the green "SAVE" button on the bottom right-hand side of the page, and add a note regarding your change to the "Save Configuration" dialog before clicking "SAVE" to dismiss the dialog.
 	6. Click "PROCEED ANYWAY".  
