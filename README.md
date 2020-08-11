@@ -98,6 +98,8 @@ You can follow the instructions in the public [HDInsight documentation](https://
 	
 	If the user configured as the `runner_kerberos_user` is not the HDInsight ESP cluster admin AD user, the `runner_kerberos_user` must be granted `serviceadmin` permissions. You can either add the `runner_kerberos_user` to the `all - hiveservice` role via the Ranger admin UI, or you can create a custom Hive role via the Ranger Admin UI that includes the `serviceadmin` Hive permission, and add the `runner_kerberos_user` to the newly created custom role.
 
+**NOTE:** If the [Tez View](https://docs.microsoft.com/en-us/azure/hdinsight/hdinsight-release-notes#support-tez-view-for-hdinsight-40) feature is available on your HDInsight 4.0 cluster, step 8 is unnecessary and doesn't need to be completed.
+
 8. Configure Interactive Hive 3.1 to log HIVE_QUERY events to Application Timeline Server:
 
 	Interactive Hive 3.1 is no longer configured to log HIVE_QUERY events to Application Timeline Server (ATS) as it was in Interactive Hive 2.1. This script requires HIVE_QUERY events to be logged to ATS to function properly. 
